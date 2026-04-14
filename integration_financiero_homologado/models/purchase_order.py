@@ -5,6 +5,7 @@ from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
+
 class PurchaseOrder(models.Model):
     _name = 'purchase.order'
     _inherit = ['purchase.order', 'integration.mixin']
@@ -20,9 +21,11 @@ class PurchaseOrder(models.Model):
         models_proxy, db, uid, password = self._get_remote_models_proxy()
 
         # Validación mínima local
-        partner_identifier = self.partner_id.vat or getattr(self.partner_id, "rif", False) or getattr(self.partner_id, "identification_id", False)
+        partner_identifier = self.partner_id.vat or getattr(
+            self.partner_id, "rif", False) or getattr(self.partner_id, "identification_id", False)
         if not partner_identifier:
-            raise UserError(_("El proveedor '%s' no tiene RIF/C.I/VAT configurado.") % self.partner_id.name)
+            raise UserError(
+                _("El proveedor '%s' no tiene RIF/C.I/VAT configurado.") % self.partner_id.name)
 
         # ✅ AHORA: busca y si no existe, crea partner remoto
         partner_id_remoto = self._get_or_create_remote_partner(
@@ -57,15 +60,8 @@ class PurchaseOrder(models.Model):
                 'product_qty': line.product_qty,
                 'date_planned': line.date_planned.strftime('%Y-%m-%d %H:%M:%S') if line.date_planned else False,
             }
-            
-            if self.currency_id.name == 'USD':
-                # Enviar precio original en USD en ref_unit
-                line_vals['ref_unit'] = line.price_unit
-                # Enviar precio en bolívares como price_unit
-                line_vals['price_unit'] = line.price_unit_bs
-            else:
-                # Comportamiento normal para otras monedas
-                line_vals['price_unit'] = line.price_unit
+
+            line_vals['price_unit'] = line.price_unit
 
             # Mapear impuestos de la línea hacia IDs remotos (específico para compras)
             try:
@@ -85,9 +81,11 @@ class PurchaseOrder(models.Model):
                         )
             except Exception as e:
                 # No detener el proceso por un fallo de mapeo de impuestos; avisar en logs
-                _logger.warning('No se pudo mapear impuestos de la línea: %s', e)
+                _logger.warning(
+                    'No se pudo mapear impuestos de la línea: %s', e)
 
-            clean_line_vals = self._filter_remote_vals(line_vals, line_remote_fields)
+            clean_line_vals = self._filter_remote_vals(
+                line_vals, line_remote_fields)
 
             order_lines.append((0, 0, clean_line_vals))
 
