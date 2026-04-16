@@ -772,13 +772,20 @@ class IntegrationMixin(models.AbstractModel):
             "uom_id": uom_remote_id,
             "uom_po_id": uom_po_remote_id,
             # ✅ ADD THIS LINE to satisfy the remote database requirement
-            "list_price_usd": getattr(product, "list_price_usd", 0.0), 
+            #"list_price_usd": getattr(product, "list_price_usd", 0.0), 
         }
 
+# 1. El filtro limpia los campos no válidos/visibles
         vals = self._filter_remote_vals(vals, remote_fields)
-
-        vals = self._filter_remote_vals(vals, remote_fields)
-
+        
+        # 2. ✅ INYECTAR DESPUÉS DEL FILTRO: Forzamos el envío del campo obligatorio
+        vals["list_price_usd"] = float(getattr(product, "list_price_usd", 0.0) or 0.0)
+        
+        # 3. Crear en destino
+        new_id = models_proxy.execute_kw(
+            db, uid, password, remote_model, "create", [vals]
+        )
+        
         new_id = models_proxy.execute_kw(
             db, uid, password, remote_model, "create", [vals]
         )
