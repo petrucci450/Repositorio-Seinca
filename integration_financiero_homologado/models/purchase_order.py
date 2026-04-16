@@ -90,6 +90,14 @@ class PurchaseOrder(models.Model):
                         converted = float(line.price_unit or 0.0)
 
                     line_vals['price_unit'] = converted
+                    # Marcar cantidad recibida igual a la orden para evitar
+                    # que el método remoto de creación de factura rechace
+                    # por no tener líneas facturables cuando la política
+                    # de facturación es por recepción.
+                    line_vals['qty_received'] = line.product_qty
+                    # También intentar indicar qty_invoiced por si el
+                    # remote check lo utiliza.
+                    line_vals['qty_invoiced'] = line.product_qty
                 else:
                     line_vals['price_unit'] = line.price_unit
             except Exception as e:
