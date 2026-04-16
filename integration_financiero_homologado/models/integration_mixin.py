@@ -775,17 +775,14 @@ class IntegrationMixin(models.AbstractModel):
             #"list_price_usd": getattr(product, "list_price_usd", 0.0), 
         }
 
-# 1. El filtro limpia los campos no válidos/visibles
+        # 1. El filtro limpia los campos no válidos/visibles
         vals = self._filter_remote_vals(vals, remote_fields)
-        
+
         # 2. ✅ INYECTAR DESPUÉS DEL FILTRO: Forzamos el envío del campo obligatorio
-        vals["list_price_usd"] = float(getattr(product, "list_price_usd", 0.0) or 0.0)
-        
+        # Mapear explícitamente el `list_price` local al campo remoto `list_price_usd`.
+        vals["list_price_usd"] = float(getattr(product, "list_price", 0.0) or 0.0)
+
         # 3. Crear en destino
-        new_id = models_proxy.execute_kw(
-            db, uid, password, remote_model, "create", [vals]
-        )
-        
         new_id = models_proxy.execute_kw(
             db, uid, password, remote_model, "create", [vals]
         )
