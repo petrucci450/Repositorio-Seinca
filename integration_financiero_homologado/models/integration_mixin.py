@@ -446,10 +446,47 @@ class IntegrationMixin(models.AbstractModel):
                         % invoice_ids[0]
                     )
 
-                # Lógica para Compras (purchase.order)
+# Lógica para Compras (purchase.order)
                 elif remote_model == "purchase.order":
-                    # PASO 3a: Ejecutar el método de creación de factura (ej. 'action_create_invoice')
-                    # PASO 3a: Ejecutar el método de creación de factura (ej. 'action_create_invoice')
+
+                    # ✅ NUEVO PASO: Auto-validar albaranes (recepciones) remotos (Optimizado Odoo 17)
+                    # Esto evita el error "There is no invoiceable line" permitiendo facturar.
+                    try:
+                        _logger.info("Buscando recepciones remotas para el pedido ID %s", new_remote_id)
+                        picking_ids = models_proxy.execute_kw(
+                            db, uid, password, "stock.picking", "search",
+                            [[("purchase_id", "=", new_remote_id), ("state", "not in", ("done", "cancel"))]]
+                        )
+                        for picking_id in picking_ids:
+                            # 1. Obtener las líneas de movimiento (stock.move)
+                            move_lines = models_proxy.execute_kw(
+                                db, uid, password, "stock.picking", "read",
+                                [[picking_id], ["move_ids_without_package"]]
+                            )
+                            if move_lines and move_lines[0].get("move_ids_without_package"):
+                                for move_id in move_lines[0]["move_ids_without_package"]:
+                                    move_data = models_proxy.execute_kw(
+                                        db, uid, password, "stock.move", "read",
+                                        [[move_id], ["product_uom_qty"]]
+                                    )
+                                    if move_data:
+                                        qty = move_data[0].get("product_uom_qty", 0.0)
+                                        
+                                        # 2. Forzar la cantidad recibida (Solo Odoo 17 usa 'quantity')
+                                        models_proxy.execute_kw(
+                                            db, uid, password, "stock.move", "write",
+                                            [[move_id], {"quantity": qty}]
+                                        )
+                            
+                            # 3. Validar el albarán remotamente
+                            models_proxy.execute_kw(
+                                db, uid, password, "stock.picking", "button_validate", [[picking_id]]
+                            )
+                            _logger.info("✅ Albarán remoto %s validado exitosamente.", picking_id)
+                    except Exception as e:
+                        _logger.warning("Error al auto-validar recepción remota: %s", e)
+
+                    # PASO 3a: Ejecutar el método de creación de factura
                     try:
                         models_proxy.execute_kw(
                             db,
