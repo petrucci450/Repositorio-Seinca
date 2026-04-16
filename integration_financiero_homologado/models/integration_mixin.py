@@ -773,7 +773,27 @@ class IntegrationMixin(models.AbstractModel):
             "uom_po_id": uom_po_remote_id,
         }
 
-        vals = self._filter_remote_vals(vals, remote_fields)
+        # También consultar campos del template remoto: algunos despliegues
+        # añaden campos obligatorios en `product.template` (p.ej. list_price_usd).
+        # Al crear un `product.product`, Odoo crea/actualiza el template y
+        # fallará si falta un campo obligatorio. Por ello combinamos los campos
+        # permitidos de `product.product` y `product.template`.
+        template_remote_fields = self._remote_fields(
+            models_proxy, db, uid, password, "product.template"
+        )
+
+        combined_remote_fields = set(remote_fields) | set(template_remote_fields)
+
+        # Si el template remoto expone 'list_price_usd', intentar rellenarlo
+        # con un valor razonable (preferir atributo local específico o el
+        # list_price general, y finalmente 0.0).
+        if "list_price_usd" in template_remote_fields:
+            vals.setdefault(
+                "list_price_usd",
+                getattr(product, "list_price_usd", None) or getattr(product, "list_price", 0.0),
+            )
+
+        vals = self._filter_remote_vals(vals, combined_remote_fields)
 
         new_id = models_proxy.execute_kw(
             db, uid, password, remote_model, "create", [vals]
