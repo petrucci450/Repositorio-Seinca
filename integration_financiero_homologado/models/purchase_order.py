@@ -61,7 +61,40 @@ class PurchaseOrder(models.Model):
                 'date_planned': line.date_planned.strftime('%Y-%m-%d %H:%M:%S') if line.date_planned else False,
             }
 
-            line_vals['price_unit'] = line.price_unit
+            # Mapear precios: ref_unit debe contener el precio original (USD)
+            # y price_unit remoto debe ser precio convertido usando la tasa del día
+            try:
+                if self.currency_id and getattr(self.currency_id, 'name', '') == 'USD':
+                    # Guardar precio original en ref_unit
+                    line_vals['ref_unit'] = line.price_unit
+
+                    # Obtener la tasa del día desde res.currency.rate.inverse_company_rate
+                    usd_currency = self.env['res.currency'].search([('name', '=', 'USD')], limit=1)
+                    rate_val = None
+                    if usd_currency:
+                        rate = self.env['res.currency.rate'].search(
+                            [('currency_id', '=', usd_currency.id), ('name', '<=', fields.Date.context_today(self))],
+                            order='name desc',
+                            limit=1,
+                        )
+                        if rate:
+                            rate_val = getattr(rate, 'inverse_company_rate', None) or getattr(rate, 'rate', None)
+
+                    if not rate_val:
+                        _logger.warning('No se encontró tasa USD del día (inverse_company_rate); usando 1.0 como fallback')
+                        rate_val = 1.0
+
+                    try:
+                        converted = float(line.price_unit or 0.0) * float(rate_val)
+                    except Exception:
+                        converted = float(line.price_unit or 0.0)
+
+                    line_vals['price_unit'] = converted
+                else:
+                    line_vals['price_unit'] = line.price_unit
+            except Exception as e:
+                _logger.warning('Error calculando precio remoto para línea: %s', e)
+                line_vals['price_unit'] = line.price_unit
 
             # Mapear impuestos de la línea hacia IDs remotos (específico para compras)
             try:
