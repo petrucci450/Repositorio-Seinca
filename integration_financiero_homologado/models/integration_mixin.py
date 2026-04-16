@@ -771,7 +771,11 @@ class IntegrationMixin(models.AbstractModel):
             "purchase_ok": product.purchase_ok,
             "uom_id": uom_remote_id,
             "uom_po_id": uom_po_remote_id,
+            # ✅ ADD THIS LINE to satisfy the remote database requirement
+            "list_price_usd": getattr(product, "list_price_usd", 0.0), 
         }
+
+        vals = self._filter_remote_vals(vals, remote_fields)
 
         vals = self._filter_remote_vals(vals, remote_fields)
 
