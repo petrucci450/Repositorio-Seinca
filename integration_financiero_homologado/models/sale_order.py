@@ -60,7 +60,7 @@ class SaleOrder(models.Model):
                 # Enviar precio original en USD en ref_unit
                 line_vals['ref_unit'] = line.price_unit
                 # Enviar precio en bolívares como price_unit
-                line_vals['price_unit'] = line.price_unit_bs
+                line_vals['price_unit'] = line.price_unit
             else:
                 # Comportamiento normal para otras monedas
                 line_vals['price_unit'] = line.price_unit
