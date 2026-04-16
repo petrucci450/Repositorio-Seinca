@@ -775,16 +775,26 @@ class IntegrationMixin(models.AbstractModel):
             #"list_price_usd": getattr(product, "list_price_usd", 0.0), 
         }
 
-        # 1. El filtro limpia los campos no válidos/visibles
+# 1. El filtro limpia los campos no válidos/visibles
         vals = self._filter_remote_vals(vals, remote_fields)
 
-        # 2. ✅ INYECTAR DESPUÉS DEL FILTRO: Forzamos el envío del campo obligatorio
-        # Mapear explícitamente el `list_price` local al campo remoto `list_price_usd`.
-        vals["list_price_usd"] = float(getattr(product, "list_price", 0.0) or 0.0)
+        # 2. ✅ OBTENER PRECIO SEGURO
+        # Extraemos el 'list_price' local. Si es 0.0, enviamos 0.01 para evitar que 
+        # el ORM de Odoo lo considere "vacío" y dispare el error de campo obligatorio.
+        local_price = float(getattr(product, "list_price", 0.0) or 0.0)
+        safe_price = local_price if local_price > 0 else 0.01
 
-        # 3. Crear en destino
+        # Lo inyectamos en vals por si el campo sí está bien mapeado en la variante
+        vals["list_price_usd"] = safe_price
+
+        # ✅ EL TRUCO DEL CONTEXTO: 
+        # Si el campo SOLO existe en el template, Odoo lo borrará de 'vals', 
+        # pero lo rescatará mágicamente de este contexto al crear el template subyacente.
+        ctx = {"default_list_price_usd": safe_price}
+
+        # 3. Crear en destino inyectando el contexto
         new_id = models_proxy.execute_kw(
-            db, uid, password, remote_model, "create", [vals]
+            db, uid, password, remote_model, "create", [vals], {"context": ctx}
         )
         _logger.info("Producto creado en destino: %s (%s)", name, new_id)
         # --- Sincronizar impuestos del template del producto ---
