@@ -14,10 +14,12 @@ class SaleOrderLine(models.Model):
         if len(self) != 1:
             return
         line = self
+        
         if not line.product_id:
+            # 1. Asignamos directamente en lugar de usar 'value'
+            line.lot_id = False
             return {
                 'domain': {'lot_id': [('id', 'in', [])]},
-                'value': {'lot_id': False},
             }
 
         # Buscar lotes asociados a quants del producto
@@ -27,13 +29,12 @@ class SaleOrderLine(models.Model):
         ])
         lot_ids = quants.mapped('lot_id').filtered(lambda l: l).ids
 
-        value = {}
+        # 2. Asignamos directamente en lugar de armar un diccionario 'value'
         if line.lot_id and line.lot_id.id not in lot_ids:
-            value['lot_id'] = False
+            line.lot_id = False
 
         return {
             'domain': {'lot_id': [('id', 'in', lot_ids)]},
-            'value': value,
         }
 
     def _prepare_procurement_values(self):
