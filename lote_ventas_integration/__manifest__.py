@@ -16,8 +16,7 @@
         'sale_stock', # Crucial para el campo sale_line_id en stock.move
     ],
     'data': [
-        # Recuerda agregar aquí tu archivo XML donde inyectas el campo lot_id a la vista sale.view_order_form
-        # 'views/sale_order_views.xml', 
+        'views/sale_order_line_view.xml',
     ],
     'installable': True,
     'application': False,
