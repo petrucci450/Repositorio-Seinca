@@ -24,7 +24,7 @@ class StockMove(models.Model):
 
         for selected_lot in lots_to_reserve:
             remaining_need = need - taken_quantity
-            if self.product_id.uom_id.compare(remaining_need, 0) <= 0:
+            if self.product_id.uom_id.compare(remaining_need, 0.0) <= 0:
                 break
             taken_quantity += super()._update_reserved_quantity(
                 remaining_need,
