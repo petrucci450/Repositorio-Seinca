@@ -1,4 +1,5 @@
 from odoo import models
+from odoo.tools.float_utils import float_compare
 
 
 class StockMove(models.Model):
@@ -24,7 +25,7 @@ class StockMove(models.Model):
 
         for selected_lot in lots_to_reserve:
             remaining_need = need - taken_quantity
-            if self.product_id.uom_id.compare(remaining_need, 0.0) <= 0:
+            if float_compare(remaining_need, 0.0, precision_rounding=self.product_id.uom_id.rounding) <= 0:
                 break
             taken_quantity += super()._update_reserved_quantity(
                 remaining_need,
