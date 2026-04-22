@@ -6,7 +6,11 @@
         <field name="model">sale.order.line</field>
         <field name="inherit_id" ref="sale.view_order_line_tree"/>
         <field name="arch" type="xml">
+            <!-- Si product_id no existe, insertamos al final del tree -->
             <xpath expr="//field[@name='product_id']" position="after">
+                <field name="lot_ids" widget="many2many_tags" options="{'no_create': True}"/>
+            </xpath>
+            <xpath expr="//tree" position="inside">
                 <field name="lot_ids" widget="many2many_tags" options="{'no_create': True}"/>
             </xpath>
         </field>
