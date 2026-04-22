@@ -4,6 +4,12 @@ from odoo import models, fields, api
 class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'
 
+    available_lot_ids = fields.Many2many(
+        'stock.lot',
+        compute='_compute_available_lot_ids',
+        string='Lotes disponibles'
+    )
+
     @api.model_create_multi
     def create(self, vals_list):
         vals_list = [self._normalize_lot_vals(vals) for vals in vals_list]
@@ -19,20 +25,47 @@ class SaleOrderLine(models.Model):
         'sale_line_id',
         'lot_id',
         string='Lotes',
-        domain="[('product_id', '=', product_id)]"
+        domain="[('id', 'in', available_lot_ids)]"
     )
     lot_id = fields.Many2one(
         'stock.lot',
         string='Lote principal',
-        domain="[('product_id', '=', product_id)]"
+        domain="[('id', 'in', available_lot_ids)]"
     )
+
+    @api.depends('product_id')
+    def _compute_available_lot_ids(self):
+        Quant = self.env['stock.quant']
+        for line in self:
+            if not line.product_id:
+                line.available_lot_ids = False
+                continue
+
+            grouped_quants = Quant.read_group(
+                [
+                    ('product_id', '=', line.product_id.id),
+                    ('lot_id', '!=', False),
+                    ('location_id.usage', 'in', ['internal', 'transit']),
+                    ('company_id', '=', line.company_id.id),
+                ],
+                ['lot_id', 'quantity:sum', 'reserved_quantity:sum'],
+                ['lot_id'],
+            )
+            available_lot_ids = [
+                group['lot_id'][0]
+                for group in grouped_quants
+                if group.get('lot_id') and group.get('quantity', 0.0) > group.get('reserved_quantity', 0.0)
+            ]
+            line.available_lot_ids = [(6, 0, available_lot_ids)]
 
     @api.onchange('product_id')
     def _onchange_product_id_clear_lot(self):
         for line in self:
             if line.lot_ids:
-                line.lot_ids = line.lot_ids.filtered(lambda lot: lot.product_id == line.product_id)
+                line.lot_ids = line.lot_ids.filtered(lambda lot: lot in line.available_lot_ids)
             if line.lot_id and line.lot_id.product_id != line.product_id:
+                line.lot_id = False
+            if line.lot_id and line.lot_id not in line.available_lot_ids:
                 line.lot_id = False
             if line.lot_id and line.lot_id not in line.lot_ids:
                 line.lot_ids |= line.lot_id
